@@ -1,0 +1,61 @@
+{
+  "name": "mpbixal/drupal-env-lando",
+  "description": "Use Lando with the Drupal Env project.",
+  "minimum-stability": "stable",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "mpbixal",
+      "email": "121190622+mpbixal@users.noreply.github.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "DrupalEnvDrupal\\": "./src/"
+    }
+  },
+  "type": "robo-tasks",
+  "require": {
+    "consolidation/robo": "^3.0.9 || ^4.0.1",
+    "drupal/core-composer-scaffold": "^10.0",
+    "php": ">=8.0.17"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "platform": {
+      "php": "8.0.17"
+    }
+  },
+  "extra": {
+    "drupal-scaffold": {
+      "gitignore": false,
+      "file-mapping": {
+        "[web-root]/sites/default.settings.lando.yml": {
+          "mode": "replace",
+          "path": "scaffolding/drupal_config/settings.lando.php",
+          "overwrite": true
+        },
+        "[project-root]/.lando.dist.yml": {
+          "mode": "replace",
+          "path": "scaffolding/env_config/lando.dist.yml",
+          "overwrite": true
+        },
+        "[project-root]/lando-config/php.ini": {
+          "mode": "replace",
+          "path": "scaffolding/php_config/php.ini",
+          "overwrite": true
+        },
+        "[project-root]/RoboEnv/Robo/Plugin/Commands/LandoCommands.php": {
+          "mode": "replace",
+          "path": "scaffolding/Robo/LandoCommands.php",
+          "overwrite": true
+        },
+        "[project-root]/.gitignore": {
+          "append": "scaffolding/gitignore-additions.txt",
+          "force-append": true
+        }
+      }
+    }
+  }
+}
