@@ -1,5 +1,6 @@
 <?php
 
+namespace RoboEnv\Robo\Plugin\Commands;
 
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
