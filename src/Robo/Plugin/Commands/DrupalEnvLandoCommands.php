@@ -2,6 +2,7 @@
 
 namespace DrupalEnvLando\Robo\Plugin\Commands;
 
+use DrupalEnv\Robo\Plugin\Commands\DrupalEnvCommandsBase;
 use Robo\Tasks;
 
 /**

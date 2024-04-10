@@ -18,6 +18,7 @@
   "require": {
     "consolidation/robo": "^3.0.9 || ^4.0.1",
     "drupal/core-composer-scaffold": "^10.0",
+    "mpbixal/drupal-env": "dev-main",
     "php": ">=8.0.17"
   },
   "config": {
