@@ -23,7 +23,7 @@ class DrupalEnvLandoCommands extends DrupalEnvCommandsBase
      *
      * @command drupal-env-lando:scaffold
      */
-    public function drupalEnvScaffold(): void
+    public function scaffold(): void
     {
         $this->updateScaffolding();
     }
