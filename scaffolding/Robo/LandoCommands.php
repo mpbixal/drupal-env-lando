@@ -2,6 +2,7 @@
 
 namespace RoboEnv\Robo\Plugin\Commands;
 
+use Cocur\Slugify\Slugify;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -249,16 +250,17 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
             return;
         }
         $this->yell('Setting the project name. This can be run by itself later via `./robo lando-admin:set-project-name`');
-        $this->_exec('vendor/bin/robo lando-admin:set-project-name');
+        // A project name must be set.
+        $this->_exec('vendor/bin/robo lando-admin:set-project-name')->stopOnFail();
 
-        $this->yell('Setting the recipe. This can be run by itself later via `./robo lando-admin:set-recipe`');
+        $this->yell('Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo lando-admin:set-recipe`');
         $this->_exec('vendor/bin/robo lando-admin:set-recipe');
 
         $this->yell('Setting required shared services. This can be run by itself later via `./robo lando-admin:set-required-shared-services`');
         $this->_exec('vendor/bin/robo lando-admin:set-required-shared-services');
 
         $this->yell('Lando will now start up and install Drupal so that the scripts can work on your current install.');
-        $this->_exec('vendor/bin/robo lando:init');
+        $this->_exec('vendor/bin/robo lando:init')->stopOnFail();
 
         // Drupal must be installed at this point because some of the optional
         // services will enable and configure modules.
@@ -278,21 +280,38 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
     public function landoAdminSetProjectName(): void
     {
         $lando_yml = $this->getLandoYml();
+        $project_name_set = false;
         if (!empty($lando_yml['name'])) {
+            $project_name_set = true;
             $default_project_name = $lando_yml['name'];
             if (!$this->confirm("Your Lando project name is already set as '$default_project_name', would you like to update?")) {
+                // Don't throw an exception, a project name was already set.
                 $this->yell('Cancelled setting project name.');
                 return;
             }
         }
         else {
-            $default_project_name = basename(__DIR__);
+            $default_project_name = basename(getcwd());
         }
-        $project_name = $this->askDefault('What will your URL be? Example: ' . $this->getLandoUrl('{MY_VALUE}'), $default_project_name);
+        $slugify = new Slugify();
+        $project_name = $this->askDefault('What will your URL be? Example: ' . $this->getLandoUrl('{MY_VALUE}'), $slugify->slugify($default_project_name));
+        $project_name = $slugify->slugify($project_name);
+        if (!strlen($project_name)) {
+            $message = 'Your project name has zero characters after being slugified.';
+            if ($project_name_set) {
+                $this->yell($message);
+                return;
+            }
+            throw new \Exception($message);
+        }
         $project_url = $this->getLandoUrl($project_name);
         if (!$this->confirm("Your new URL will be $project_url", true)) {
-            $this->yell('Cancelled setting project name.');
-            return;
+            $message = 'Cancelled setting project name.';
+            if ($project_name_set) {
+                $this->yell($message);
+                return;
+            }
+            throw new \Exception($message);
         }
         $lando_yml['name'] = $project_name;
         $this->saveLandoYml($lando_yml);
@@ -392,13 +411,13 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
                 unset($lando_yml['services'][$services_key]);
                 $save_lando_yml($lando_yml);
                 return null;
-            // Add the optional service.
+                // Add the optional service.
             } else {
                 // Grab additional configuration needed for the Lando service.
                 $additional_config = self::sharedServices()[$shared_service_key][$service_type]['additional_config'] ?? [];
                 $config = [
-                    'type' => $new_service_value,
-                ] + $additional_config;
+                        'type' => $new_service_value,
+                    ] + $additional_config;
                 $lando_yml['services'][$services_key] = $config;
                 $save_lando_yml($lando_yml);
                 return true;
@@ -819,9 +838,9 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         $this->drush(['search-api-solr:get-server-config', 'default_solr_server', 'solr-config.zip']);
         if ($this->taskDeleteDir('solr-conf')
             ->taskExtract('web/solr-config.zip')
-                ->to('solr-conf')
+            ->to('solr-conf')
             ->taskFilesystemStack()
-                ->remove('web/solr-config.zip')
+            ->remove('web/solr-config.zip')
             ->stopOnFail()
             ->run()
             ->wasSuccessful()) {
@@ -881,10 +900,21 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         } elseif (!empty($lando_dist_yml['config']['via'])) {
             $via = $lando_dist_yml['config']['via'];
         }
+        // Via may have the version number, like apache:2.4, only get 'apache'.
+        [$via] = explode(':', $via);
+        if (empty($lando_local_yml['proxy'])) {
+            $lando_local_yml['proxy'] = [];
+        }
         ksort($lando_local_yml['proxy']);
         $saved_proxy = $lando_local_yml['proxy'];
         unset($lando_local_yml['proxy']);
-        $proxy_service_exists[] = "appserver_$via";
+        // Nginx adds another service (appserver_nginx) to serve the main URL,
+        // while apache uses just appserver.
+        if ($via === 'nginx') {
+            $proxy_service_exists[] = "appserver_$via";
+        } else {
+            $proxy_service_exists[] = $via;
+        }
         foreach ($proxy_service_exists as $proxy_service_exist) {
             $lando_local_yml['proxy'][$proxy_service_exist] = [
                 $this->getLandoUrl($project_name, $proxy_service_exist, '')
@@ -914,13 +944,13 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
      */
     public function landoInit(InputInterface $input, OutputInterface $output): void
     {
-        if ($this->landoReqs($input, $output)) {
+        if (!$this->landoReqs($input, $output)) {
             throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
         }
-        $this->landoSetupUrls();
-        $this->_exec('lando destroy -y');
-        $this->_exec('lando start');
-        $this->_exec('lando si');
+        $this->_exec('vendor/bin/robo lando:setup-urls')->stopOnFail();
+        $this->_exec('lando destroy -y')->stopOnFail();
+        $this->_exec('lando start')->stopOnFail();
+        $this->_exec('lando install')->stopOnFail();
         if ($this->confirm('Your environment has been started, please use the one time login link to login. Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)?')) {
             $this->_exec('./robo set-personal-services');
         }

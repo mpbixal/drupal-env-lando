@@ -16,6 +16,7 @@
   },
   "type": "robo-tasks",
   "require": {
+    "cocur/slugify": "^4.0.0",
     "consolidation/robo": "^3.0.9 || ^4.0.1",
     "drupal/core-composer-scaffold": "^10.0",
     "mpbixal/drupal-env": "dev-main",
