@@ -3,7 +3,6 @@
 namespace DrupalEnvLando\Robo\Plugin\Commands;
 
 use DrupalEnv\Robo\Plugin\Commands\DrupalEnvCommandsBase;
-use Robo\Tasks;
 
 /**
  * Provide commands to handle installation tasks.
@@ -23,9 +22,11 @@ class DrupalEnvLandoCommands extends DrupalEnvCommandsBase
      *
      * @command drupal-env-lando:scaffold
      */
-    public function scaffold(): void
+    public function scaffold(string $package_name = ''): void
     {
-        $this->updateScaffolding();
+        // Only reason this method is redefined is so that it can be given
+        // a new @command name.
+        parent::scaffold($package_name);
     }
 
     /**
