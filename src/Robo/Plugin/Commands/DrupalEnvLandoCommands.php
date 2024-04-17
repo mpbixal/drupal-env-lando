@@ -50,11 +50,4 @@ class DrupalEnvLandoCommands extends DrupalEnvCommandsBase
         }
     }
 
-    /**
-     * @inheritDoc
-     */
-    protected function postScaffoldChanges(): void
-    {
-        // No post scaffolding is required.
-    }
 }
