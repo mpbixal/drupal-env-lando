@@ -3,6 +3,7 @@
 namespace RoboEnv\Robo\Plugin\Commands;
 
 use Cocur\Slugify\Slugify;
+use Robo\Robo;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -231,7 +232,8 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         } else {
             $service = "$service.";
         }
-        return sprintf('%s%s%s.lndo.site', $protocol, $service, $project_name);
+        $slugify = new Slugify();
+        return sprintf('%s%s%s.lndo.site', $protocol, $service, $slugify->slugify($project_name));
     }
 
     /**
@@ -277,7 +279,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
      *
      * @return void
      */
-    public function landoAdminSetProjectName(): void
+    public function landoAdminSetProjectName(SymfonyStyle $io): void
     {
         $lando_yml = $this->getLandoYml();
         $project_name_set = false;
@@ -294,10 +296,11 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
             $default_project_name = basename(getcwd());
         }
         $slugify = new Slugify();
-        $project_name = $this->askDefault('What will your URL be? Example: ' . $this->getLandoUrl('{MY_VALUE}'), $slugify->slugify($default_project_name));
-        $project_name = $slugify->slugify($project_name);
-        if (!strlen($project_name)) {
-            $message = 'Your project name has zero characters after being slugified.';
+        $example_project_name = 'sub.great_site';
+        $io->note(sprintf('Your project name determines your URL. For example, if your project name is "%s" is, your site URL will be "%s".', $example_project_name,  $this->getLandoUrl($example_project_name)));
+        $project_name = $this->askDefault('Choose your project name', $default_project_name);
+        if (!strlen($slugify->slugify($project_name))) {
+            $message = 'Your project name would result in a zero character URL.';
             if ($project_name_set) {
                 $this->yell($message);
                 return;
@@ -305,7 +308,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
             throw new \Exception($message);
         }
         $project_url = $this->getLandoUrl($project_name);
-        if (!$this->confirm("Your new URL will be $project_url", true)) {
+        if (!$this->confirm("A project name of '$project_name' will result in a URL of '$project_url', do you want to continue?", true)) {
             $message = 'Cancelled setting project name.';
             if ($project_name_set) {
                 $this->yell($message);
@@ -315,6 +318,8 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         }
         $lando_yml['name'] = $project_name;
         $this->saveLandoYml($lando_yml);
+        // This effects the URLs, update them.
+        $this->landoSetupUrls();
     }
 
     /**
@@ -854,21 +859,19 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
     /**
      * Configure the URLs to be used to access the environment.
      *
-     * @param bool $use_local_project_name
-     *   If true, the 'name' from .lando.local.yml instead of .lando.yml.
-     *
      * @return bool
      *   True if the URLs needed to be updated.
      *
      * @command lando:setup-urls
      */
-    public function landoSetupUrls(bool $use_local_project_name = false): bool
+    public function landoSetupUrls(): bool
     {
         $updated = false;
         $this->isLandoInit();
         $lando_file_yml = $this->getLandoYml();
         $lando_local_yml = $this->getLandoLocalYml();
         $lando_dist_yml = $this->getLandoDistYml();
+        $use_local_project_name = (bool) Robo::Config()->get('flag.landoSetupUrlsUseLocalProjectName', 0);
         if ($use_local_project_name && !empty($lando_local_yml['name'])) {
             $project_name = $lando_local_yml['name'];
         } else {
@@ -1020,33 +1023,39 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
      *
      * @command lando:duplicate-project
      */
-    public function landoDuplicateProject(): void
+    public function landoDuplicateProject(SymfonyStyle $io): void
     {
         $this->isLandoInit();
         $lando_file_yml = $this->getLandoYml();
         $this->say('When creating a duplicate local environment, there are 2 options.');
         $this->say('');
         $this->say('a) Use the same URL as the original project URL (' . $this->getLandoUrl($lando_file_yml['name']) . ')');
-        $this->say('b) Use a new URL for the duplicate project (' . $this->getLandoUrl($lando_file_yml['name'] . '_NEW_SUFFIX_VALUE') . ')');
+        $this->say('b) Use a new URL for the duplicate project (' . $this->getLandoUrl($lando_file_yml['name'] . '-NEW-SUFFIX-VALUE') . ')');
         $this->say('');
-        $this->say('"a" is nice because the URL is consistent, but you may get confused which environment you are on. With this option, you should not run them at the same time, you should lando stop on the old and land start on the new. If you do not, lando will not warn you and it will start using your sites like a load balancer, serving every other request from each.');
+        $this->say('"a" is nice because the URL is consistent, but you may get confused which environment you are on. With this option, you should not run them at the same time, you should lando stop on the old and lando start on the new. If you do not, lando will not warn you and it will start using your sites like a load balancer, serving every other request from each.');
         $this->say('"b" is nice because both can run at the same time and you will get a visual distinction on the URL so you know where you are.');
         $this->say('');
-        $option_choice = $this->askDefault('Which option do you prefer, a or b? Choose any other value to cancel.', '');
-        if (!in_array($option_choice, ['a', 'b'])) {
+        $option_choice = $io->choice('Which option do you prefer?', ['a' => 'a) Same URL, only one at a time', 'b' => 'b) New URL, run at same time', 'cancel' => 'Cancel']);
+        if ($option_choice === 'cancel') {
             $this->say('Cancelled');
             return;
         }
-        $this->say('Duplicating your project will copy the current root directory to a sibling directory so that they are separate environments.');
-        $this->say('');
+        $io->note('Duplicating your project will copy the current root directory to a sibling directory so that they are separate environments.');
         $extra_text = '';
         if ('b' === $option_choice) {
-            $extra_text = ' Your new directory will determine new URL for your new duplicate project.';
+            $extra_text = ' Your new directory will determine the new URL for your new duplicate project.';
         }
-        $option_directory_suffix = $this->ask('Which directory do you want to put your project in? Note that it will be prefixed with "' . $lando_file_yml['name'] . '_"' . $extra_text);
-        $new_project_name = $lando_file_yml['name'] . '_' . str_replace([$lando_file_yml['name'] . '_', $lando_file_yml['name']], '', $option_directory_suffix);
-        $source_dir = realpath(__DIR__);
-        $target_dir = realpath(__DIR__ . DIRECTORY_SEPARATOR . '..') . DIRECTORY_SEPARATOR . $new_project_name;
+        $current_project_dir = basename(getcwd());
+        $option_directory_suffix = $io->ask("Which directory do you want to put your project in? Note that it will be prefixed with '$current_project_dir" . '_' . "'.$extra_text", 'code_review');
+        // Remove the current directory from the new suffix if they entered it.
+        $search = [$current_project_dir . '_', $current_project_dir];
+        $option_directory_suffix = str_replace($search, '', $option_directory_suffix);
+        if (!strlen($option_directory_suffix)) {
+            $this->yell('You have to enter a value that is not your current project directory.');
+        }
+        $new_project_name = $lando_file_yml['name'] . '_' . $option_directory_suffix;
+        $source_dir = realpath(getcwd());
+        $target_dir = realpath(getcwd() . DIRECTORY_SEPARATOR . '..') . DIRECTORY_SEPARATOR . $current_project_dir . '_' . $option_directory_suffix;
         if (is_dir($target_dir)) {
             $this->yell("The target directory $target_dir already exists, unable to create duplicate project.");
             return;
@@ -1103,7 +1112,11 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         $this->saveLandoLocalYml($lando_local_yml);
 
         if ('b' === $option_choice) {
-            $this->landoSetupUrls(true);
+            // Set this flag so that when landoSetupUrls is run, the correct
+            // choice is made.
+            Robo::Config()->set('flag.landoSetupUrlsUseLocalProjectName', 1);
+            $this->saveConfig();
+            $this->landoSetupUrls();
             $this->say('New URLs have been set for all your services that had them.');
         } else {
             $this->say('Please stop the current environment before starting your new one.');
