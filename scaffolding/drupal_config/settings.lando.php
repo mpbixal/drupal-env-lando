@@ -19,7 +19,9 @@ if (isset($lando_info->database)) {
   // Lando DB connection.
   switch ($lando_info->database->type) {
     case 'mysql';
+    case 'drupal-mysql';
     case 'mariadb':
+    case 'drupal-mariadb':
       $databases['default']['default'] += [
         'namespace' => 'Drupal\\Core\\Database\\Driver\\mysql',
         'driver' => 'mysql',
@@ -27,6 +29,7 @@ if (isset($lando_info->database)) {
       break;
 
     case 'postgres';
+    case 'drupal-postgres';
       $databases['default']['default'] += [
         'namespace' => 'Drupal\\pgsql\\Driver\\Database\\pgsql',
         'driver' => 'pgsql',
