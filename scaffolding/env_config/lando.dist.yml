@@ -55,19 +55,19 @@ tooling:
     description: Apply composer patches or regenerate lock hash.
     cmd:
       - "./composer.sh update --lock"
-  install:
+  si:
     service: appserver
     description: Install a fresh Drupal site from configuration.
     cmd:
       - "env DRUPAL_UPDATE_OR_INSTALL=install ./orch/deploy_install.sh"
-      - "env DRUPAL_SOLR_SITE_HASH=abcdef ./orch/post_deploy_shared.sh"
+      - "env DRUPAL_SOLR_SITE_HASH=abcdef ./orch/post_deploy.sh"
       - "drush uli"
-  update:
+  su:
     service: appserver
     description: Run updates, import configuration, run cron, etc (Install if not installed).
     cmd:
       - "env DRUPAL_UPDATE_OR_INSTALL=install ./orch/deploy_update.sh"
-      - "env DRUPAL_SOLR_SITE_HASH=abcdef ./orch/post_deploy_shared.sh"
+      - "env DRUPAL_SOLR_SITE_HASH=abcdef ./orch/post_deploy.sh"
       - "drush uli"
   xdebug-on:
     service: appserver
