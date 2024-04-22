@@ -604,19 +604,12 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
 
         $this->isLandoInit();
         $io = new SymfonyStyle($input, $output);
-        if ($this->confirm('Please see https://www.drupal.org/docs/getting-started/system-requirements/web-server-requirements before setting the web server')) {
-            $this->setRecipeService($io, false, 'web', 'via', 'web server');
-        }
-        if ($this->confirm('Please see https://www.drupal.org/docs/getting-started/system-requirements/database-server-requirements before setting the Database:')) {
-            $this->setRecipeService($io, false, 'database', 'database', 'database');
-        } else {
-            $this->yell('Skipped setting the Database.');
-        }
-        if ($this->confirm('Plese see https://www.drupal.org/docs/getting-started/system-requirements/php-requirements#versions before setting the PHP version')) {
-            $this->setRecipeService($io, true, 'php', 'php', 'PHP');
-        } else {
-            $this->yell('Skipped setting the PHP version.');
-        }
+        $io->warning('Drupal requirements for Web Servers: https://www.drupal.org/docs/getting-started/system-requirements/web-server-requirements');
+        $this->setRecipeService($io, false, 'web', 'via', 'web server');
+        $io->warning('Drupal requirements for Databases: https://www.drupal.org/docs/getting-started/system-requirements/database-server-requirements');
+        $this->setRecipeService($io, false, 'database', 'database', 'database');
+        $io->warning('Drupal requirements for PHP: https://www.drupal.org/docs/getting-started/system-requirements/php-requirements#versionsn');
+        $this->setRecipeService($io, true, 'php', 'php', 'PHP');
     }
 
     /**
