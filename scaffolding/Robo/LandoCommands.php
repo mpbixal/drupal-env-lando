@@ -956,7 +956,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         $this->_exec('lando start')->stopOnFail();
         $this->_exec('lando install')->stopOnFail();
         if ($this->confirm('Your environment has been started, please use the one time login link to login. Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)?')) {
-            $this->_exec('./robo set-personal-services');
+            $this->_exec('./robo lando:set-personal-services');
         }
         // @todo: Ask to enable xdebug
         // @todo: Ask to enable local settings (no cache / twig debug).
