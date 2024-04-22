@@ -636,7 +636,6 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
             $rebuild_required = true;
             $this->yell('If you are changing the version or the type of the search server, please `lando destroy -y` instead of `lando rebuild -y`');
         }
-        $this->rebuildRequired($rebuild_required);
         $status = $this->setOptionalService($io, 'shared','node', 'node', 'node application', $service_type, $service_version);
         $this->reactToSharedService($service_type, $status);
         if (!$rebuild_required && false !== $status) {
@@ -719,12 +718,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
                     $this->yell("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machinename MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
-                    if ($this->confirm("Have you finished the above configuration?")) {
-                        $this->_exec('./robo lando-admin:solr-config');
-                    } else {
-                        $this->yell('Please run `./robo lando-admin:solr-config` after making the changes.');
-                    }
-
+                    $this->confirm("Once the above has been completed, you can run the command `./robo lando-admin:solr-config` to put the Solr configuration in place. Lando must be rebuilt before this can be run.");
                 }
                 break;
 
