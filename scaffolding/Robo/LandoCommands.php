@@ -866,12 +866,13 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
      */
     public function landoSetupUrls(): bool
     {
+
         $updated = false;
         $this->isLandoInit();
         $lando_file_yml = $this->getLandoYml();
         $lando_local_yml = $this->getLandoLocalYml();
         $lando_dist_yml = $this->getLandoDistYml();
-        $use_local_project_name = (bool) Robo::Config()->get('flag.landoSetupUrlsUseLocalProjectName', 0);
+        $use_local_project_name = (bool) $this->getConfig('flags.lando.setupUrlsUseLocalProjectName', 0, true);
         if ($use_local_project_name && !empty($lando_local_yml['name'])) {
             $project_name = $lando_local_yml['name'];
         } else {
@@ -1114,8 +1115,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         if ('b' === $option_choice) {
             // Set this flag so that when landoSetupUrls is run, the correct
             // choice is made.
-            Robo::Config()->set('flag.landoSetupUrlsUseLocalProjectName', 1);
-            $this->saveConfig();
+            $this->saveConfig('flags.lando.setupUrlsUseLocalProjectName', 1, true);
             $this->landoSetupUrls();
             $this->say('New URLs have been set for all your services that had them.');
         } else {
