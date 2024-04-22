@@ -1136,6 +1136,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
                         '8.0',
                         '8.1',
                         '8.2',
+                        '8.3',
                     ]
                 ],
             ],
