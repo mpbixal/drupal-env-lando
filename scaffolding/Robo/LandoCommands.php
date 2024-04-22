@@ -954,7 +954,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         $this->_exec('vendor/bin/robo lando:setup-urls')->stopOnFail();
         $this->_exec('lando destroy -y')->stopOnFail();
         $this->_exec('lando start')->stopOnFail();
-        $this->_exec('lando install')->stopOnFail();
+        $this->_exec('lando si')->stopOnFail();
         if ($this->confirm('Your environment has been started, please use the one time login link to login. Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)?')) {
             $this->_exec('./robo lando:set-personal-services');
         }
