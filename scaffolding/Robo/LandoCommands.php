@@ -718,8 +718,13 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
                 $add_or_remove_module('search_api_solr', ['search_api']);
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
-                    $this->confirm("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machinename MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
-                    $this->confirm("Once the above has been completed, you can run the command `./robo lando-admin:solr-config` to put the Solr configuration in place.");
+                    $this->yell("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machinename MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
+                    if ($this->confirm("Have you finished the above configuration?")) {
+                        $this->_exec('./robo lando-admin:solr-config');
+                    } else {
+                        $this->yell('Please run `./robo lando-admin:solr-config` after making the changes.');
+                    }
+
                 }
                 break;
 
