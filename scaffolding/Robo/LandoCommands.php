@@ -251,25 +251,27 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
             $this->say('Cancelled.');
             return;
         }
-        $this->yell('Setting the project name. This can be run by itself later via `./robo lando-admin:set-project-name`');
+        $this->ask('Setting the project name. This can be run by itself later via `./robo lando-admin:set-project-name`. Press enter to continue.');
         // A project name must be set.
         $this->_exec('vendor/bin/robo lando-admin:set-project-name')->stopOnFail();
 
-        $this->yell('Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo lando-admin:set-recipe`');
+        $this->ask('Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo lando-admin:set-recipe`. Press enter to continue.');
         $this->_exec('vendor/bin/robo lando-admin:set-recipe');
 
-        $this->yell('Setting required shared services. This can be run by itself later via `./robo lando-admin:set-required-shared-services`');
+        $this->ask('Setting required shared services. This can be run by itself later via `./robo lando-admin:set-required-shared-services`. Press enter to continue.');
         $this->_exec('vendor/bin/robo lando-admin:set-required-shared-services');
 
-        $this->yell('Lando will now start up and install Drupal so that the scripts can work on your current install.');
+        $this->ask('Lando will now start up and install Drupal so that the scripts can work on your current install.');
         $this->_exec('vendor/bin/robo lando:init')->stopOnFail();
 
-        // Drupal must be installed at this point because some of the optional
-        // services will enable and configure modules.
-        $this->isDrupalInstalled();
-
-        $this->yell('Setting optional shared services. This can be run by itself later via `./robo lando-admin:set-optional-shared-services`');
+        $this->ask('Setting optional shared services. This can be run by itself later via `./robo lando-admin:set-optional-shared-services`. Press enter to continue.');
         $this->_exec('vendor/bin/robo lando-admin:set-optional-shared-services');
+
+        // The following are shared commands that are not specific to Lando, but
+        // instead just need a local installed to work.
+        $this->ask('Taking action after a local has been installed. This can be run by itself later via `./robo post-local-started`. Press enter to continue.');
+        $this->_exec('vendor/bin/robo drupal-env-admin:post-local-started');
+
     }
 
     /**
@@ -909,7 +911,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         if ($via === 'nginx') {
             $proxy_service_exists[] = "appserver_$via";
         } else {
-            $proxy_service_exists[] = $via;
+            $proxy_service_exists[] = 'appserver';
         }
         foreach ($proxy_service_exists as $proxy_service_exist) {
             $lando_local_yml['proxy'][$proxy_service_exist] = [
@@ -1170,7 +1172,6 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
                         '11.2',
                         '11.1',
                         '11.0',
-                        '10.11',
                         '10.6',
                         '10.5',
                         '10.4',
