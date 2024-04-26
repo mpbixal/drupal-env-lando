@@ -1,9 +1,9 @@
 recipe: drupal10
 config:
   webroot: web
-  via: nginx
-  php: '8.2'
-  database: mariadb:10.3
+  via: apache:2.4
+  php: '8.3'
+  database: mariadb:10.6
   # Off by default, enabled with lando xdebug-on.
   xdebug: false
   config:
