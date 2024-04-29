@@ -270,7 +270,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         // The following are shared commands that are not specific to Lando, but
         // instead just need a local installed to work.
         $this->ask('Taking action after a local has been installed. This can be run by itself later via `./robo post-local-started`. Press enter to continue.');
-        $this->_exec('vendor/bin/robo drupal-env-admin:post-local-started');
+        $this->_exec('vendor/bin/robo common-admin:post-local-started');
 
     }
 
