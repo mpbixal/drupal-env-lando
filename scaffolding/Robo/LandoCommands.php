@@ -3,7 +3,6 @@
 namespace RoboEnv\Robo\Plugin\Commands;
 
 use Cocur\Slugify\Slugify;
-use Robo\Robo;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -14,7 +13,7 @@ use Symfony\Component\Yaml\Yaml;
  *
  * @class RoboFile
  */
-class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
+class LandoCommands extends CommonCommands
 {
 
     /**
@@ -39,11 +38,36 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
     protected string $lando_dist_yml_path = '.lando.dist.yml';
 
     /**
-     * The path to Drush.
-     *
-     * @var string
+     * {@inheritDoc}
      */
-    protected string $path_to_drush = 'lando drush';
+    protected function getName(): string
+    {
+        return 'lando';
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public static function composerCommand($inside = TRUE): string
+    {
+        if ($inside) {
+            return 'composer';
+        } else {
+            return 'lando composer';
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public static function drushCommand($inside = TRUE): string
+    {
+        if ($inside) {
+            return 'drush';
+        } else {
+            return 'lando drush';
+        }
+    }
 
     /**
      * Toggles when Lando starts up, xdebug will now be on by default.
@@ -621,25 +645,24 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
      *
      * @return void
      */
-    public function landoAdminSetOptionalSharedServices(InputInterface $input, OutputInterface $output): void
+    public function landoAdminSetOptionalSharedServices(SymfonyStyle $io): void
     {
         $this->isLandoInit();
         $this->isDrupalInstalled();
-        $io = new SymfonyStyle($input, $output);
         $rebuild_required = false;
         $status = $this->setOptionalService($io, 'shared', 'cache', 'cache', 'cache server', $service_type, $service_version);
         if (false !== $status) {
             $rebuild_required = true;
         }
-        $this->reactToSharedService($service_type, $status);
+        $this->reactToSharedService($io, $service_type, $status);
         $status = $this->setOptionalService($io, 'shared','search', 'search', 'search server', $service_type, $service_version);
-        $this->reactToSharedService($service_type, $status);
+        $this->reactToSharedService($io, $service_type, $status);
         if (!$rebuild_required && false !== $status) {
             $rebuild_required = true;
             $this->yell('If you are changing the version or the type of the search server, please `lando destroy -y` instead of `lando rebuild -y`');
         }
         $status = $this->setOptionalService($io, 'shared','node', 'node', 'node application', $service_type, $service_version);
-        $this->reactToSharedService($service_type, $status);
+        $this->reactToSharedService($io, $service_type, $status);
         if (!$rebuild_required && false !== $status) {
             $rebuild_required = true;
         }
@@ -680,7 +703,7 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
      *
      * @throws \Exception
      */
-    protected function reactToSharedService(string $service_type, bool|null $status = false): void
+    protected function reactToSharedService(SymfonyStyle $io, string $service_type, bool|null $status = false): void
     {
         // Stayed the same.
         if ($status === false) {
@@ -692,13 +715,13 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
             $add = false;
         }
         $self = $this;
-        $add_or_remove_module = static function(string $module_name, array $additional_uninstall = []) use($add, $self): void {
+        $add_or_remove_module = static function(string $module_name, array $additional_uninstall = []) use($add, $self, $io): void {
             if ($add) {
                 $self->taskComposerRequire('./composer')->dependency('drupal/' . $module_name)->run();
-                $self->drush(['en', '-y', $module_name]);
+                $self->drush($io, ['en', '-y', $module_name]);
             } else {
                 $additional_uninstall[] = $module_name;
-                $self->drush(array_merge(['pm-uninstall', '-y'], $additional_uninstall));
+                $self->drush($io, array_merge(['pm-uninstall', '-y'], $additional_uninstall));
                 if ($self->confirm('Would you like to remove the drupal/' . $module_name . ' composer dependency right now? Only do so right away if this module is not enabled on production, otherwise, you will get errors when trying to uninstall and removing the dependency at the same time.')) {
                     $self->taskComposerRemove('./composer')->arg('drupal/' . $module_name)->run();
                 }
@@ -824,17 +847,15 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
     /**
      * Copy the Solr config from Drupal to the Solr server config directory.
      *
-     * @param InputInterface $input
-     * @param OutputInterface $output
      * @return void
      *
      * @command lando-admin:solr-config
      */
-    public function landoAdminSolrConfig(InputInterface $input, OutputInterface $output): void
+    public function landoAdminSolrConfig(SymfonyStyle $io): void
     {
         $this->isLandoInit();
         $this->isDrupalInstalled();
-        $this->drush(['search-api-solr:get-server-config', 'default_solr_server', 'solr-config.zip']);
+        $this->drush($io, ['search-api-solr:get-server-config', 'default_solr_server', 'solr-config.zip']);
         if ($this->taskDeleteDir('solr-conf')
             ->taskExtract('web/solr-config.zip')
             ->to('solr-conf')
@@ -945,7 +966,11 @@ class LandoCommands extends \RoboEnv\Robo\Plugin\Commands\CommonCommands
         if (!$this->landoReqs($input, $output)) {
             throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
         }
-        $this->_exec('vendor/bin/robo lando:setup-urls')->stopOnFail();
+        // This will now be the default local environment, as many can be
+        // installed.
+        $this->setDefaultLocalEnvironment($this->getName());
+        return;
+        $this->_exec('./robo.sh lando:setup-urls')->stopOnFail();
         $this->_exec('lando destroy -y')->stopOnFail();
         $this->_exec('lando start')->stopOnFail();
         $this->_exec('lando si')->stopOnFail();

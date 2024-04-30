@@ -36,12 +36,6 @@ services:
         #XDEBUG_CONFIG: 'log_level=0'
 
 tooling:
-  # Run composer commands through composer.sh so composer.log is generated.
-  composer:
-    service: appserver
-    description: 'Run composer inside lando. Defaults to composer 1 if composer install has not run yet...'
-    cmd:
-      - "./composer.sh"
   # @todo: Convert this to a robo command and make configurable.
   export-content:
     service: appserver
