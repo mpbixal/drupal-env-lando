@@ -951,6 +951,23 @@ class LandoCommands extends CommonCommands
     }
 
     /**
+     * Ensure that an original install directory flag is set.
+     *
+     * This helps with the project copying functionality.
+     *
+     * @return string
+     */
+    protected function ensureOriginalInstallDirectorySet(): string
+    {
+        $original_install_directory = $this->getConfig('flags.lando.originalInstallDirectory', '', true);
+        if (!strlen($original_install_directory)) {
+            $original_install_directory = basename(realpath(getcwd()));
+            $this->saveConfig('flags.lando.originalInstallDirectory', $original_install_directory, true);
+        }
+        return $original_install_directory;
+    }
+
+    /**
      * Start Lando for the first time.
      *
      * * Ensures lando is installed.
@@ -967,9 +984,16 @@ class LandoCommands extends CommonCommands
             throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
         }
         // This will now be the default local environment, as many can be
-        // installed.
+        // installed. This allows the shortcuts like drush.sh to know which
+        // environment to use.
         $this->setDefaultLocalEnvironment($this->getName());
-        return;
+        // Check if the original directory has been captured yet, if not this
+        // is the original install. It does not matter if that directory
+        // does not exist anymore, it will not be copied from just it's name
+        // used in new copied projects.
+        // This allows the project to be copied from any descendant and use
+        // the original directory + suffix.
+        $this->ensureOriginalInstallDirectorySet();
         $this->_exec('./robo.sh lando:setup-urls')->stopOnFail();
         $this->_exec('lando destroy -y')->stopOnFail();
         $this->_exec('lando start')->stopOnFail();
@@ -1035,6 +1059,18 @@ class LandoCommands extends CommonCommands
     }
 
     /**
+     * Get a project folder name that is a sibling.
+     *
+     * @param string $sibling_project_folder_name
+     *
+     * @return string
+     */
+    protected function getSiblingAbsDir(string $sibling_project_folder_name): string
+    {
+        return realpath(getcwd() . DIRECTORY_SEPARATOR . '..') . DIRECTORY_SEPARATOR . $sibling_project_folder_name;
+    }
+
+    /**
      * Create a duplicate local environment.
      *
      * * Copy all files to a new directory
@@ -1065,26 +1101,29 @@ class LandoCommands extends CommonCommands
         if ('b' === $option_choice) {
             $extra_text = ' Your new directory will determine the new URL for your new duplicate project.';
         }
-        $current_project_dir = basename(getcwd());
-        $option_directory_suffix = $io->ask("Which directory do you want to put your project in? Note that it will be prefixed with '$current_project_dir" . '_' . "'.$extra_text", 'code_review');
+        $original_install_directory = $this->ensureOriginalInstallDirectorySet();
+        $option_directory_suffix = $io->ask("Which directory do you want to put your project in? Note that it will be prefixed with '$original_install_directory-'.$extra_text", 'testing');
         // Remove the current directory from the new suffix if they entered it.
-        $search = [$current_project_dir . '_', $current_project_dir];
+        $search = [$original_install_directory . '_', $original_install_directory, $original_install_directory . '-', ' '];
         $option_directory_suffix = str_replace($search, '', $option_directory_suffix);
         if (!strlen($option_directory_suffix)) {
             $this->yell('You have to enter a value that is not your current project directory.');
+            return;
         }
-        $new_project_name = $lando_file_yml['name'] . '_' . $option_directory_suffix;
+        $new_project_name = $lando_file_yml['name'] . '-' . $option_directory_suffix;
         $source_dir = realpath(getcwd());
-        $target_dir = realpath(getcwd() . DIRECTORY_SEPARATOR . '..') . DIRECTORY_SEPARATOR . $current_project_dir . '_' . $option_directory_suffix;
+        // The new directory is always based on the original install directory
+        // in case the project is being copied from a copy.
+        $target_dir = $this->getSiblingAbsDir($original_install_directory . '-' . $option_directory_suffix);
         if (is_dir($target_dir)) {
             $this->yell("The target directory $target_dir already exists, unable to create duplicate project.");
             return;
         }
         $this->say(sprintf('Your new duplicate project will be copied from %s to %s', $source_dir, $target_dir));
-        if ('b') {
+        if ('b' === $option_choice) {
             $this->say('Your new duplicate project URL will be ' . $this->getLandoUrl($new_project_name));
         }
-        if (!$this->confirm('Are you sure you want to continue?')) {
+        if (!$this->confirm('Are you sure you want to continue?', true)) {
             $this->say('Cancelled');
             return;
         }
@@ -1135,11 +1174,13 @@ class LandoCommands extends CommonCommands
             // Set this flag so that when landoSetupUrls is run, the correct
             // choice is made.
             $this->saveConfig('flags.lando.setupUrlsUseLocalProjectName', 1, true);
-            $this->landoSetupUrls();
             $this->say('New URLs have been set for all your services that had them.');
         } else {
+            // Disable this in-case copying from one where it's enabled.
+            $this->saveConfig('flags.lando.setupUrlsUseLocalProjectName', 0, true);
             $this->say('Please stop the current environment before starting your new one.');
         }
+        $this->landoSetupUrls();
 
         $this->say("Finished creating your new environment. Please change to the directory ../$target_dir_name first. It is ready to be started.");
     }
