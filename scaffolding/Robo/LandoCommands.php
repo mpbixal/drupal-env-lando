@@ -309,6 +309,7 @@ class LandoCommands extends CommonCommands
     {
         $lando_yml = $this->getLandoYml();
         $project_name_set = false;
+        $slugify = new Slugify();
         if (!empty($lando_yml['name'])) {
             $project_name_set = true;
             $default_project_name = $lando_yml['name'];
@@ -319,9 +320,8 @@ class LandoCommands extends CommonCommands
             }
         }
         else {
-            $default_project_name = basename(getcwd());
+            $default_project_name = $slugify->slugify(basename(getcwd()));
         }
-        $slugify = new Slugify();
         $example_project_name = 'sub.great_site';
         $io->note(sprintf('Your project name determines your URL. For example, if your project name is "%s" is, your site URL will be "%s".', $example_project_name,  $this->getLandoUrl($example_project_name)));
         $project_name = $this->askDefault('Choose your project name', $default_project_name);
