@@ -648,7 +648,7 @@ class LandoCommands extends CommonCommands
     public function landoAdminSetOptionalSharedServices(SymfonyStyle $io): void
     {
         $this->isLandoInit();
-        $this->isDrupalInstalled();
+        $this->isDrupalInstalled($io);
         $rebuild_required = false;
         $status = $this->setOptionalService($io, 'shared', 'cache', 'cache', 'cache server', $service_type, $service_version);
         if (false !== $status) {
@@ -854,7 +854,7 @@ class LandoCommands extends CommonCommands
     public function landoAdminSolrConfig(SymfonyStyle $io): void
     {
         $this->isLandoInit();
-        $this->isDrupalInstalled();
+        $this->isDrupalInstalled($io);
         $this->drush($io, ['search-api-solr:get-server-config', 'default_solr_server', 'solr-config.zip']);
         if ($this->taskDeleteDir('solr-conf')
             ->taskExtract('web/solr-config.zip')
