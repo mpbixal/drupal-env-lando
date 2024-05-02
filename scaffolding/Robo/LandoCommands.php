@@ -717,13 +717,13 @@ class LandoCommands extends CommonCommands
         $self = $this;
         $add_or_remove_module = static function(string $module_name, array $additional_uninstall = []) use($add, $self, $io): void {
             if ($add) {
-                $self->taskComposerRequire('./composer')->dependency('drupal/' . $module_name)->run();
+                $self->taskComposerRequire('./composer.sh')->dependency('drupal/' . $module_name)->run();
                 $self->drush($io, ['en', '-y', $module_name]);
             } else {
                 $additional_uninstall[] = $module_name;
                 $self->drush($io, array_merge(['pm-uninstall', '-y'], $additional_uninstall));
                 if ($self->confirm('Would you like to remove the drupal/' . $module_name . ' composer dependency right now? Only do so right away if this module is not enabled on production, otherwise, you will get errors when trying to uninstall and removing the dependency at the same time.')) {
-                    $self->taskComposerRemove('./composer')->arg('drupal/' . $module_name)->run();
+                    $self->taskComposerRemove('./composer.sh')->arg('drupal/' . $module_name)->run();
                 }
             }
         };
