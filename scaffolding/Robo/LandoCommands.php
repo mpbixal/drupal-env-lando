@@ -232,7 +232,7 @@ class LandoCommands extends CommonCommands
      */
     protected function saveLandoYml(array|string $file_contents): bool
     {
-        $this->say("{$this->lando_yml_path} has been written. Please commit this file so that ./robo lando:init can be run and the environment can be started by yourself and others. If the project has already been started, you will need to lando rebuild -y");
+        $this->say("{$this->lando_yml_path} has been written. Please commit this file so that ./robo.sh lando:init can be run and the environment can be started by yourself and others. If the project has already been started, you will need to lando rebuild -y");
         return $this->saveYml($this->lando_yml_path, $file_contents);
     }
 
@@ -275,25 +275,25 @@ class LandoCommands extends CommonCommands
             $this->say('Cancelled.');
             return;
         }
-        $this->ask('Setting the project name. This can be run by itself later via `./robo lando-admin:set-project-name`. Press enter to continue.');
+        $this->ask('Setting the project name. This can be run by itself later via `./robo.sh lando-admin:set-project-name`. Press enter to continue.');
         // A project name must be set.
         $this->_exec('vendor/bin/robo lando-admin:set-project-name')->stopOnFail();
 
-        $this->ask('Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo lando-admin:set-recipe`. Press enter to continue.');
+        $this->ask('Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo.sh lando-admin:set-recipe`. Press enter to continue.');
         $this->_exec('vendor/bin/robo lando-admin:set-recipe');
 
-        $this->ask('Setting required shared services. This can be run by itself later via `./robo lando-admin:set-required-shared-services`. Press enter to continue.');
+        $this->ask('Setting required shared services. This can be run by itself later via `./robo.sh lando-admin:set-required-shared-services`. Press enter to continue.');
         $this->_exec('vendor/bin/robo lando-admin:set-required-shared-services');
 
         $this->ask('Lando will now start up and install Drupal so that the scripts can work on your current install.');
         $this->_exec('vendor/bin/robo lando:init')->stopOnFail();
 
-        $this->ask('Setting optional shared services. This can be run by itself later via `./robo lando-admin:set-optional-shared-services`. Press enter to continue.');
+        $this->ask('Setting optional shared services. This can be run by itself later via `./robo.sh lando-admin:set-optional-shared-services`. Press enter to continue.');
         $this->_exec('vendor/bin/robo lando-admin:set-optional-shared-services');
 
         // The following are shared commands that are not specific to Lando, but
         // instead just need a local installed to work.
-        $this->ask('Taking action after a local has been installed. This can be run by itself later via `./robo post-local-started`. Press enter to continue.');
+        $this->ask('Taking action after a local has been installed. This can be run by itself later via `./robo.sh post-local-started`. Press enter to continue.');
         $this->_exec('vendor/bin/robo common-admin:post-local-started');
 
     }
@@ -743,7 +743,7 @@ class LandoCommands extends CommonCommands
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
                     $this->yell("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machinename MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
-                    $this->confirm("Once the above has been completed, you can run the command `./robo lando-admin:solr-config` to put the Solr configuration in place. Lando must be rebuilt before this can be run.");
+                    $this->confirm("Once the above has been completed, you can run the command `./robo.sh lando-admin:solr-config` to put the Solr configuration in place. Lando must be rebuilt before this can be run.");
                 }
                 break;
 
@@ -999,7 +999,7 @@ class LandoCommands extends CommonCommands
         $this->_exec('lando start')->stopOnFail();
         $this->_exec('lando si')->stopOnFail();
         if ($this->confirm('Your environment has been started, please use the one time login link to login. Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)?')) {
-            $this->_exec('./robo lando:set-personal-services');
+            $this->_exec('./robo.sh lando:set-personal-services');
         }
         // @todo: Ask to enable xdebug
         // @todo: Ask to enable local settings (no cache / twig debug).
