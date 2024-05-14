@@ -3,8 +3,6 @@
 namespace RoboEnv\Robo\Plugin\Commands;
 
 use Cocur\Slugify\Slugify;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Yaml\Yaml;
 
@@ -269,31 +267,31 @@ class LandoCommands extends CommonCommands
      *
      * @command lando-admin:init
      */
-    public function landoAdminInit(): void
+    public function landoAdminInit(SymfonyStyle $io): void
     {
         if ($this->doesLandoFileExists(true) && !$this->confirm("Lando is already set up, are you sure you want to update your {$this->lando_yml_path} file?")) {
             $this->say('Cancelled.');
             return;
         }
-        $this->ask('Setting the project name. This can be run by itself later via `./robo.sh lando-admin:set-project-name`. Press enter to continue.');
+        $this->enterToContinue($io, 'Setting the project name. This can be run by itself later via `./robo.sh lando-admin:set-project-name`.');
         // A project name must be set.
         $this->_exec('vendor/bin/robo lando-admin:set-project-name')->stopOnFail();
 
-        $this->ask('Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo.sh lando-admin:set-recipe`. Press enter to continue.');
+        $this->enterToContinue($io, 'Setting the recipe automatically to the most optimal. This can be run by itself later via `./robo.sh lando-admin:set-recipe`.');
         $this->_exec('vendor/bin/robo lando-admin:set-recipe');
 
-        $this->ask('Setting required shared services. This can be run by itself later via `./robo.sh lando-admin:set-required-shared-services`. Press enter to continue.');
+        $this->enterToContinue($io, 'Setting required shared services. This can be run by itself later via `./robo.sh lando-admin:set-required-shared-services`.');
         $this->_exec('vendor/bin/robo lando-admin:set-required-shared-services');
 
-        $this->ask('Lando will now start up and install Drupal so that the scripts can work on your current install.');
+        $this->enterToContinue($io, 'Lando will now start up and install Drupal so that the scripts can work on your current install.');
         $this->_exec('vendor/bin/robo lando:init')->stopOnFail();
 
-        $this->ask('Setting optional shared services. This can be run by itself later via `./robo.sh lando-admin:set-optional-shared-services`. Press enter to continue.');
+        $this->enterToContinue($io, 'Setting optional shared services. This can be run by itself later via `./robo.sh lando-admin:set-optional-shared-services`.');
         $this->_exec('vendor/bin/robo lando-admin:set-optional-shared-services');
 
         // The following are shared commands that are not specific to Lando, but
         // instead just need a local installed to work.
-        $this->ask('Taking action after a local has been installed. This can be run by itself later via `./robo.sh post-local-started`. Press enter to continue.');
+        $this->enterToContinue($io, 'Taking action after a local has been installed. This can be run by itself later via `./robo.sh post-local-started`.');
         $this->_exec('vendor/bin/robo common-admin:post-local-started');
 
     }
@@ -625,11 +623,10 @@ class LandoCommands extends CommonCommands
      *
      * @return void
      */
-    public function landoAdminSetRequiredSharedServices(InputInterface $input, OutputInterface $output): void
+    public function landoAdminSetRequiredSharedServices(SymfonyStyle $io): void
     {
 
         $this->isLandoInit();
-        $io = new SymfonyStyle($input, $output);
         $io->warning('Drupal requirements for Web Servers: https://www.drupal.org/docs/getting-started/system-requirements/web-server-requirements');
         $this->setRecipeService($io, false, 'web', 'via', 'web server');
         $io->warning('Drupal requirements for Databases: https://www.drupal.org/docs/getting-started/system-requirements/database-server-requirements');
@@ -715,31 +712,29 @@ class LandoCommands extends CommonCommands
             $add = false;
         }
         $self = $this;
-        $add_or_remove_module = static function(string $module_name, array $additional_uninstall = []) use($add, $self, $io): void {
+        $add_or_remove_module = static function(string $project, array $additional_uninstall = []) use($add, $self, $io): void {
             if ($add) {
-                $self->taskComposerRequire('./composer.sh')->dependency('drupal/' . $module_name)->run();
-                $self->drush($io, ['en', '-y', $module_name]);
+                $self->installDependencies($io, false, [$project => '']);
             } else {
-                $additional_uninstall[] = $module_name;
-                $self->drush($io, array_merge(['pm-uninstall', '-y'], $additional_uninstall));
-                if ($self->confirm('Would you like to remove the drupal/' . $module_name . ' composer dependency right now? Only do so right away if this module is not enabled on production, otherwise, you will get errors when trying to uninstall and removing the dependency at the same time.')) {
-                    $self->taskComposerRemove('./composer.sh')->arg('drupal/' . $module_name)->run();
+                $additional_uninstall[] = $project;
+                foreach ($additional_uninstall as $project) {
+                    $self->uninstallDependency($io, $project);
                 }
             }
         };
         switch ($service_type) {
             case 'memcached':
-                $add_or_remove_module('memcache');
+                $add_or_remove_module('drupal/memcache');
                 break;
 
             case 'redis':
-                $add_or_remove_module('redis');
+                $add_or_remove_module('drupal/redis');
                 break;
 
             case 'solr':
                 // Search API gets turned on at the same time as solr, uninstall
                 // it too.
-                $add_or_remove_module('search_api_solr', ['search_api']);
+                $add_or_remove_module('drupal/search_api_solr', ['search_api']);
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
                     $this->yell("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machinename MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
@@ -750,7 +745,7 @@ class LandoCommands extends CommonCommands
             case 'elasticsearch':
                 // Search API gets turned on at the same time as
                 // elasticsearch_connector, uninstall it too.
-                $add_or_remove_module('elasticsearch_connector', ['search_api']);
+                $add_or_remove_module('drupal/elasticsearch_connector:@dev', ['search_api']);
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
                     $this->confirm("The Elasticsearch Connector module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-serverr. Guidelines: The machinename MUST be 'default_elasticsearch_server'; The 'ElasticSearch Connector' MUST be 'standard'; 'ElasticSearch URL' must be set, but the value does not matter; All other values can be updated as you see fit.");
@@ -808,8 +803,6 @@ class LandoCommands extends CommonCommands
     /**
      * Set the version of PHP to use.
      *
-     * @param InputInterface $input
-     * @param OutputInterface $output
      * @return void
      *
      * @command lando-admin:set-php
@@ -971,6 +964,8 @@ class LandoCommands extends CommonCommands
      * Start Lando for the first time.
      *
      * * Ensures lando is installed.
+     * * Introduce to common shortcuts.
+     * * Set Lando to the default env.
      * * Sets up the URLs.
      * * Starts up Lando.
      * * Installs Drupal.
@@ -978,11 +973,14 @@ class LandoCommands extends CommonCommands
      *
      * @command lando:init
      */
-    public function landoInit(InputInterface $input, OutputInterface $output): void
+    public function landoInit(SymfonyStyle $io): void
     {
-        if (!$this->landoReqs($input, $output)) {
+        if (!$this->landoReqs($io)) {
             throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
         }
+        /*// Introduce the common shortcuts so one knows how they work and to
+        // configure them.
+        $this->introduceCommonShortcuts($io);
         // This will now be the default local environment, as many can be
         // installed. This allows the shortcuts like drush.sh to know which
         // environment to use.
@@ -997,10 +995,20 @@ class LandoCommands extends CommonCommands
         $this->_exec('./robo.sh lando:setup-urls')->stopOnFail();
         $this->_exec('lando destroy -y')->stopOnFail();
         $this->_exec('lando start')->stopOnFail();
-        $this->_exec('lando si')->stopOnFail();
-        if ($this->confirm('Your environment has been started, please use the one time login link to login. Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)?')) {
+        $this->_exec('lando si')->stopOnFail();*/
+        $io->success('Your environment has been started and Drupal site installed! Please use the one time login link to login.');
+        if ($io->confirm('Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)? You can run this at any time using "./robo.sh lando:set-personal-services"', false)) {
             $this->_exec('./robo.sh lando:set-personal-services');
         }
+        $io->info('How do I interact with my environment?');
+        $io->info('Just like a normal Lando site (https://docs.lando.dev/cli/).');
+        $io->info('What\'s different?');
+        $io->info('You have two new lando "tooling" available: "lando si" will install a Drupal site from configuration. "lando su" will update an already installed site, like a normal production deployment without destroying the database.');
+        $io->info('You now have access to helper commands via ./robo.sh. These can be found under the "common", "xdebug", and "lando" namespaces. Those in the "common-admin" & "lando-admin" will effect files that are committed and therefore all developers. You also have access to the common shortcuts. You can find and reset their paths via "./robo.sh common:shortcuts-help".');
+        if ($io->confirm('Would you like to reset or learn more about shortcuts or reset their paths?', false)) {
+            $this->_exec('./robo.sh common:shortcuts-help');
+        }
+
         // @todo: Ask to enable xdebug
         // @todo: Ask to enable local settings (no cache / twig debug).
     }
@@ -1010,10 +1018,9 @@ class LandoCommands extends CommonCommands
      *
      * @command lando:set-personal-services
      */
-    public function landoSetPersonalServices(InputInterface $input, OutputInterface $output): void
+    public function landoSetPersonalServices(SymfonyStyle $io): void
     {
         $this->isLandoInit();
-        $io = new SymfonyStyle($input, $output);
         $rebuild_required = false;
         $status = $this->setOptionalService($io, 'personal', 'dbadmin', 'dbadmin', 'database admin tool', $service_type, $service_version);
         if (false !== $status) {
@@ -1040,9 +1047,8 @@ class LandoCommands extends CommonCommands
      *
      * @throws \Exception
      */
-    public function landoReqs(InputInterface $input, OutputInterface $output): bool
+    public function landoReqs(SymfonyStyle $io): bool
     {
-        $io = new SymfonyStyle($input, $output);
         $rows = [];
         $missing_software = FALSE;
         if (!$this->addSoftwareTableRow(
