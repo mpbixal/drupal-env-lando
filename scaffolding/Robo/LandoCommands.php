@@ -650,18 +650,22 @@ class LandoCommands extends CommonCommands
         $status = $this->setOptionalService($io, 'shared', 'cache', 'cache', 'cache server', $service_type, $service_version);
         if (false !== $status) {
             $rebuild_required = true;
+            $this->reactToSharedService($io, $service_type, $status);
         }
-        $this->reactToSharedService($io, $service_type, $status);
         $status = $this->setOptionalService($io, 'shared','search', 'search', 'search server', $service_type, $service_version);
-        $this->reactToSharedService($io, $service_type, $status);
-        if (!$rebuild_required && false !== $status) {
-            $rebuild_required = true;
-            $this->yell('If you are changing the version or the type of the search server, please `lando destroy -y` instead of `lando rebuild -y`');
+        if (false !== $status) {
+            $this->reactToSharedService($io, $service_type, $status);
+            if (!$rebuild_required) {
+                $rebuild_required = true;
+                $this->yell('If you are changing the version or the type of the search server, please `lando destroy -y` instead of `lando rebuild -y`');
+            }
         }
         $status = $this->setOptionalService($io, 'shared','node', 'node', 'node application', $service_type, $service_version);
-        $this->reactToSharedService($io, $service_type, $status);
-        if (!$rebuild_required && false !== $status) {
-            $rebuild_required = true;
+        if (false !== $status) {
+            $this->reactToSharedService($io, $service_type, $status);
+            if (!$rebuild_required) {
+                $rebuild_required = true;
+            }
         }
         $this->rebuildRequired($io, $rebuild_required);
     }
