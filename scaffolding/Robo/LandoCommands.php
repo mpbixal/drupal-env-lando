@@ -104,7 +104,7 @@ class LandoCommands extends CommonCommands
      *
      * @command lando:xdebug-toggle-always-connect
      */
-    public function xdebugToggleAlwaysConnect(): void
+    public function xdebugToggleAlwaysConnect(SymfonyStyle $io): void
     {
         $this->isLandoInit();
         $yml_file = $this->getLandoLocalYml();
@@ -117,7 +117,7 @@ class LandoCommands extends CommonCommands
             $yml_value = 1;
         }
         $this->saveLandoLocalYml($yml_file);
-        $this->rebuildRequired(true);
+        $this->rebuildRequired($io, true);
     }
 
     /**
@@ -269,7 +269,7 @@ class LandoCommands extends CommonCommands
      */
     public function landoAdminInit(SymfonyStyle $io): void
     {
-        if ($this->doesLandoFileExists(true) && !$this->confirm("Lando is already set up, are you sure you want to update your {$this->lando_yml_path} file?")) {
+        if ($this->doesLandoFileExists(true) && !$io->confirm("Lando is already set up, are you sure you want to update your {$this->lando_yml_path} file?", false)) {
             $this->say('Cancelled.');
             return;
         }
@@ -311,7 +311,7 @@ class LandoCommands extends CommonCommands
         if (!empty($lando_yml['name'])) {
             $project_name_set = true;
             $default_project_name = $lando_yml['name'];
-            if (!$this->confirm("Your Lando project name is already set as '$default_project_name', would you like to update?")) {
+            if (!$io->confirm("Your Lando project name is already set as '$default_project_name', would you like to update?", false)) {
                 // Don't throw an exception, a project name was already set.
                 $this->yell('Cancelled setting project name.');
                 return;
@@ -321,7 +321,7 @@ class LandoCommands extends CommonCommands
             $default_project_name = $slugify->slugify(basename(getcwd()));
         }
         $example_project_name = 'sub.great_site';
-        $io->note(sprintf('Your project name determines your URL. For example, if your project name is "%s" is, your site URL will be "%s".', $example_project_name,  $this->getLandoUrl($example_project_name)));
+        $io->note(sprintf('Your project name determines your URL. For example, if your project name is "%s", your site URL will be "%s".', $example_project_name,  $this->getLandoUrl($example_project_name)));
         $project_name = $this->askDefault('Choose your project name', $default_project_name);
         if (!strlen($slugify->slugify($project_name))) {
             $message = 'Your project name would result in a zero character URL.';
@@ -332,7 +332,7 @@ class LandoCommands extends CommonCommands
             throw new \Exception($message);
         }
         $project_url = $this->getLandoUrl($project_name);
-        if (!$this->confirm("A project name of '$project_name' will result in a URL of '$project_url', do you want to continue?", true)) {
+        if (!$io->confirm("A project name of '$project_name' will result in a URL of '$project_url', do you want to continue?")) {
             $message = 'Cancelled setting project name.';
             if ($project_name_set) {
                 $this->yell($message);
@@ -524,7 +524,7 @@ class LandoCommands extends CommonCommands
                 $options = ['remove override' => 'Remove Override', $override_type => $override_type];
             }
             $options['cancel'] = 'Cancel / Skip';
-            $type_choice = $io->choice("Which $description would you like to use (Setting a version is next, you cannot 'cancel')?", $options, $type_default[0]);
+            $type_choice = $io->choice("Which $description would you like to use (If you'd like to set a version, you cannot 'cancel')?", $options, $type_default[0] !== '' ? 'cancel' : '');
 
             if ($type_choice === 'cancel') {
                 $this->yell(ucfirst($description) . ' type not updated.');
@@ -663,7 +663,7 @@ class LandoCommands extends CommonCommands
         if (!$rebuild_required && false !== $status) {
             $rebuild_required = true;
         }
-        $this->rebuildRequired($rebuild_required);
+        $this->rebuildRequired($io, $rebuild_required);
     }
 
     /**
@@ -674,14 +674,14 @@ class LandoCommands extends CommonCommands
      *
      * @return void
      */
-    protected function rebuildRequired(bool $rebuild_required, string $confirm_message = ''): void
+    protected function rebuildRequired(SymfonyStyle $io, bool $rebuild_required, string $confirm_message = ''): void
     {
         if (strlen($confirm_message)) {
             $confirm_message = "A Lando rebuild is required because $confirm_message, please confirm to do so.";
         } else {
             $confirm_message = "A Lando rebuild is required, please confirm to do so.";
         }
-        if ($rebuild_required && $this->confirm($confirm_message)) {
+        if ($rebuild_required && $io->confirm($confirm_message, false)) {
             $this->_exec('lando rebuild -y');
         }
     }
@@ -737,8 +737,8 @@ class LandoCommands extends CommonCommands
                 $add_or_remove_module('drupal/search_api_solr', ['search_api']);
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
-                    $this->yell("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machinename MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
-                    $this->confirm("Once the above has been completed, you can run the command `./robo.sh lando-admin:solr-config` to put the Solr configuration in place. Lando must be rebuilt before this can be run.");
+                    $this->yell("The Search API Solr module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machine name MUST be 'default_solr_server'; The 'Solr Connector' MUST be 'standard'; 'Solr core' must be set, but the value does not matter; All other values can be updated as you see fit.");
+                    $this->enterToContinue($io, "Once the above has been completed, you can run the command `./robo.sh lando-admin:solr-config` to put the Solr configuration in place. Lando must be rebuilt before this can be run.");
                 }
                 break;
 
@@ -748,13 +748,13 @@ class LandoCommands extends CommonCommands
                 $add_or_remove_module('drupal/elasticsearch_connector:@dev', ['search_api']);
                 if ($add) {
                     $this->yell('IMPORTANT MANUAL CONFIGURATION:');
-                    $this->confirm("The Elasticsearch Connector module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-serverr. Guidelines: The machinename MUST be 'default_elasticsearch_server'; The 'ElasticSearch Connector' MUST be 'standard'; 'ElasticSearch URL' must be set, but the value does not matter; All other values can be updated as you see fit.");
+                    $this->enterToContinue($io, "The Elasticsearch Connector module has been added and enabled, but you must manually create the core at /admin/config/search/search-api/add-server. Guidelines: The machine name MUST be 'default_elasticsearch_server'; The 'ElasticSearch Connector' MUST be 'standard'; 'ElasticSearch URL' must be set, but the value does not matter; All other values can be updated as you see fit.");
                 }
                 break;
 
             case 'node':
                 if ($add) {
-                    $this->confirm('If you need to take action during the build process, please edit the "./orch/build_node.sh" file. By default, this file will install deps with npm and run "gulp" on all custom themes that have a package.json.');
+                    $this->enterToContinue($io, 'If you need to take action during the build process, please edit the "./orch/build_node.sh" file. By default, this file will install deps with npm and run "gulp" on all custom themes that have a package.json.');
                 }
                 break;
 
@@ -860,7 +860,7 @@ class LandoCommands extends CommonCommands
             $lando_yml = $this->getLandoYml();
             $lando_yml['services']['search']['config']['dir'] = 'solr-conf';
             $this->saveLandoYml($lando_yml);
-            $this->rebuildRequired(true, 'the Solr configuration is now in place, you can commit the files in "solr-conf"');
+            $this->rebuildRequired($io, true, 'the Solr configuration is now in place, you can commit the files in "solr-conf"');
         }
     }
 
@@ -978,7 +978,7 @@ class LandoCommands extends CommonCommands
         if (!$this->landoReqs($io)) {
             throw new \Exception('Unable to find all requirements. Please re-run this command after installing');
         }
-        /*// Introduce the common shortcuts so one knows how they work and to
+        // Introduce the common shortcuts so one knows how they work and to
         // configure them.
         $this->introduceCommonShortcuts($io);
         // This will now be the default local environment, as many can be
@@ -995,7 +995,7 @@ class LandoCommands extends CommonCommands
         $this->_exec('./robo.sh lando:setup-urls')->stopOnFail();
         $this->_exec('lando destroy -y')->stopOnFail();
         $this->_exec('lando start')->stopOnFail();
-        $this->_exec('lando si')->stopOnFail();*/
+        $this->_exec('lando si')->stopOnFail();
         $io->success('Your environment has been started and Drupal site installed! Please use the one time login link to login.');
         if ($io->confirm('Would you like to add any personal services (like PhpMyadmin, Mailhog, etc)? You can run this at any time using "./robo.sh lando:set-personal-services"', false)) {
             $this->_exec('./robo.sh lando:set-personal-services');
@@ -1034,7 +1034,7 @@ class LandoCommands extends CommonCommands
         if (!$rebuild_required && false !== $status) {
             $rebuild_required = true;
         }
-        $this->rebuildRequired($rebuild_required);
+        $this->rebuildRequired($io, $rebuild_required);
     }
 
     /**
@@ -1129,7 +1129,7 @@ class LandoCommands extends CommonCommands
         if ('b' === $option_choice) {
             $this->say('Your new duplicate project URL will be ' . $this->getLandoUrl($new_project_name));
         }
-        if (!$this->confirm('Are you sure you want to continue?', true)) {
+        if (!$io->confirm('Are you sure you want to continue?')) {
             $this->say('Cancelled');
             return;
         }
